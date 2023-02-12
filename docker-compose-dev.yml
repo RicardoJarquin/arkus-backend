@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+    php-app-dev:
+        build:
+            context: .
+            dockerfile: DockerfileDev
+        container_name: arkusnexus-backend-dev
+        restart: unless-stopped
+        working_dir: /var/www/html
+        volumes:
+            - ./:/var/www/html
+    web-server-dev:
+        image: nginx:1.23.3-alpine
+        container_name: arkusnexus-server-dev
+        restart: unless-stopped
+        ports:
+            - 8080:80
+        volumes:
+            - ./:/var/www/html
+            - ./nginx/server.conf:/etc/nginx/conf.d/default.conf

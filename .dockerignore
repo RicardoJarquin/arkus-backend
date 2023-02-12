@@ -1,0 +1,4 @@
+nginx
+vendor
+#php-extension
+.env
