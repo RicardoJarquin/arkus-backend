@@ -6,6 +6,12 @@ RUN php -r "readfile('http://getcomposer.org/installer');" | php -- --install-di
 
 RUN cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini
 
+RUN apk add libpq-dev
+
+RUN docker-php-ext-install pdo pdo_pgsql pgsql
+
+RUN docker-php-ext-enable pdo pdo_pgsql pgsql
+
 RUN docker-php-ext-install opcache
 
 COPY ./php-extension/opcache.ini /usr/local/etc/php/conf.d/

@@ -9,6 +9,12 @@ RUN cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini
 
 RUN apk add --update linux-headers \
     && apk add --no-cache $PHPIZE_DEPS \
-    && pecl install xdebug \
+    && pecl install xdebug
+
+RUN apk add libpq-dev
+
+RUN docker-php-ext-install pdo pdo_pgsql pgsql
+
+RUN docker-php-ext-enable pdo pdo_pgsql pgsql
 
 COPY ./php-extension/xdebug.ini /usr/local/etc/php/conf.d/
