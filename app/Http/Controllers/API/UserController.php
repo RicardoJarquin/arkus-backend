@@ -14,6 +14,7 @@ class UserController extends Controller
     public function __construct()
     {
         $this->middleware("auth:api",["except" => ["login"]]);
+        $this->middleware('role:super-admin', ['only' => ['register']]);
     }
 
     public function register(Request $request)
@@ -22,6 +23,10 @@ class UserController extends Controller
             'name' => 'required|string',
             'email' => 'required|string|unique:users',
             'password' => 'required|min:6|confirmed',
+            'english_level' => 'nullable|in:none,basic,medium,high',
+            'technical_skills' => 'nullable|max:255',
+            'cv_link' => 'nullable|min:6',
+            'admin' => 'nullable|boolean'
         ]);
 
         if($validator->fails()){
@@ -32,12 +37,20 @@ class UserController extends Controller
         }
 
         $data = [
-            "name" => $request->name,
-            "email" => $request->email,
-            "password" => Hash::make($request->password)
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'english_level' => $request->english_level,
+            'technical_skills' => $request->technical_skills,
+            'cv_link' => $request->cv_link
         ];
 
-        User::create($data);
+        $user = User::create($data);
+        if($request->admin){
+            $user->assignRole('admin');
+        }else{
+            $user->assignRole('normal-user');
+        }
 
         $responseMessage = "Registration Successful";
         return response()->json([
