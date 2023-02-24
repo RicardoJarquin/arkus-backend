@@ -3,127 +3,108 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
+use App\Http\Resources\UserResource;
+use App\Models\Account;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
     public function __construct()
     {
-        $this->middleware("auth:api",["except" => ["login"]]);
-        $this->middleware('role:super-admin', ['only' => ['register']]);
+        $this->middleware("auth:api");
+        $this->middleware('role:super-admin', ["except" => ["index"]]);
     }
 
-    public function register(Request $request)
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+     */
+    public function index()
     {
-        $validator = Validator::make($request->all(),[
-            'name' => 'required|string',
-            'email' => 'required|string|unique:users',
-            'password' => 'required|min:6|confirmed',
-            'english_level' => 'nullable|in:none,basic,medium,high',
-            'technical_skills' => 'nullable|max:255',
-            'cv_link' => 'nullable|min:6',
-            'admin' => 'nullable|boolean'
-        ]);
+        return UserResource::collection(User::query()->orderBy('id', 'desc')->paginate(10));
+    }
 
-        if($validator->fails()){
-            return response()->json([
-                'success' => false,
-                'message' => $validator->messages()->toArray()
-            ], 500);
-        }
-
-        $data = [
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'english_level' => $request->english_level,
-            'technical_skills' => $request->technical_skills,
-            'cv_link' => $request->cv_link
-        ];
-
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param \App\Http\Requests\StoreUserRequest $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(StoreUserRequest $request)
+    {
+        $data = $request->validated();
+        $data['password'] = bcrypt($data['password']);
         $user = User::create($data);
-        if($request->admin){
+        if($data['is_admin']){
             $user->assignRole('admin');
         }else{
             $user->assignRole('normal-user');
         }
 
-        $responseMessage = "Registration Successful";
-        return response()->json([
-            'success' => true,
-            'message' => $responseMessage
-        ], 200);
+        return response(new UserResource($user) , 201);
     }
 
-    public function login(Request $request)
+    /**
+     * Display the specified resource.
+     *
+     * @param \App\Models\User $user
+     * @return \App\Http\Resources\UserResource
+     */
+    public function show(User $user)
     {
-        $validator = Validator::make($request->all(),[
-            'email' => 'required|string',
-            'password' => 'required|min:6',
-        ]);
+        return new UserResource($user);
+    }
 
-        if($validator->fails()){
-            return response()->json([
-                'success' => false,
-                'message' => $validator->messages()->toArray()
-            ], 500);
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param \App\Http\Requests\UpdateUserRequest $request
+     * @param \App\Models\User                     $user
+     * @return \App\Http\Resources\UserResource
+     */
+    public function update(UpdateUserRequest $request, User $user)
+    {
+        $data = $request->validated();
+        if (isset($data['password'])) {
+            $data['password'] = bcrypt($data['password']);
         }
-
-        $credentials = $request->only(["email","password"]);
-
-        $user = User::where('email',$credentials['email'])->first();
-
-        if($user){
-            if(!auth()->attempt($credentials)){
-                $responseMessage = "Invalid username or password";
-                return response()->json([
-                    "success" => false,
-                    "message" => $responseMessage,
-                    "error" => $responseMessage
-                ], 422);
-            }
-            $accessToken = auth()->user()->createToken('authToken')->accessToken;
-            $responseMessage = "Login Successful";
-            return response()->json([
-                "success" => true,
-                "message" => $responseMessage,
-                "data" => auth()->user(),
-                "token" => $accessToken,
-                "token_type" => "bearer",
-            ],200);
-        } else{
-            $responseMessage = "Sorry, this user does not exist";
-            return response()->json([
-                "success" => false,
-                "message" => $responseMessage,
-                "error" => $responseMessage
-            ], 422);
+        if($data['is_admin']){
+            $user->syncRoles('admin');
+        }else{
+            $user->syncRoles('normal-user');
         }
+        $user->update($data);
+
+        return new UserResource($user);
     }
 
-    public function viewProfile()
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param \App\Models\User $user
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(User $user)
     {
-        $responseMessage = "user profile";
-        $data = Auth::guard("api")->user();
-        return response()->json([
-            "success" => true,
-            "message" => $responseMessage,
-            "data" => $data
-        ], 200);
+        $user->delete();
+
+        return response("", 204);
     }
 
-    public function logout()
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return array
+     */
+    public function usersList(Account $account)
     {
-        $user = Auth::guard("api")->user()->token();
-        $user->revoke();
-        $responseMessage = "successfully logged out";
-        return response()->json([
-            'success' => true,
-            'message' => $responseMessage
-        ], 200);
+        return array(
+            'name' => $account->name,
+            'users' => UserResource::collection($account->users)
+        );
     }
 }

@@ -47,4 +47,16 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    protected $appends = ['is_admin', 'is_super_admin'];
+
+    public function getIsAdminAttribute()
+    {
+        return $this->hasRole('admin');
+    }
+
+    public function getIsSuperAdminAttribute()
+    {
+        return $this->hasRole('super-admin');
+    }
 }
